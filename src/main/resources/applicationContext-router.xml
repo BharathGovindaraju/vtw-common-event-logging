@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:task="http://www.springframework.org/schema/task"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans.xsd 
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/task
+	http://www.springframework.org/schema/task/spring-task-3.0.xsd">
+
+	<context:component-scan base-package="com.elsevier.vtw.event"/>
+
+	<bean id="abstractRouterPlaceholderConfig" abstract="true"
+		class="com.elsevier.events.config.DynamoSourcePropertyConfigurer">
+		<property name="order" value="10" />
+		<property name="placeholderPrefix" value="%[" />
+		<property name="placeholderSuffix" value="]" />
+		<property name="projectName" value="events-router" />
+	</bean>
+	
+	<bean id="routerPlaceholderConfig" parent="abstractRouterPlaceholderConfig"/>
+	
+	<alias name="%[cel.elasticsearch.client]" alias="ElasticsearchClient"/>
+
+	<task:scheduler id="eventLogScheduler"/>
+	<task:scheduled-tasks scheduler="eventLogScheduler">
+		<task:scheduled ref="eventLogListener" method="runListeners"
+										fixed-delay="%[event.router.listener.rate:1000]"/>
+	</task:scheduled-tasks>
+
+	<bean id="callerRunsPolicy" class="java.util.concurrent.ThreadPoolExecutor$CallerRunsPolicy"/>
+	
+	<bean id="eventLogTaskExecutor"
+				class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+		<description>ThreadPool Executor bean for Log Message Processor</description>
+		<property name="corePoolSize" value="%[event.router.log.threadpool.coresize:5]"/>
+		<property name="queueCapacity" value="%[event.router.log.threadpool.queue.capacity:1000000]"/>
+		<property name="maxPoolSize" value="%[event.router.log.threadpool.maxsize:10]"/>
+		<property name="keepAliveSeconds" value="%[event.router.log.threadpool.keepalive:60]"/>
+		<property name="rejectedExecutionHandler" ref="callerRunsPolicy"/>
+		<property name="threadNamePrefix" value="cel-"/>
+	</bean>
+
+	<bean id="eventLogProcessor" class="com.elsevier.vtw.event.processor.EventLogProcessor" />
+
+	<bean id="eventLogListener" class="com.elsevier.events.listener.EventQueueListenerContainer">
+		<constructor-arg ref="eventLogProcessor" />
+		<constructor-arg type="org.springframework.core.task.TaskExecutor" ref="eventLogTaskExecutor" />
+		<constructor-arg name="threadCount" value="%[event.router.listener.thread.count:5]" />
+		<constructor-arg type="java.lang.String" value="%[event.log.queue.name]" />
+		<constructor-arg name="sqsHelper" ref="SQSHelper"/>
+	</bean>
+
+	<beans profile="dev">
+		<description>
+			Set an environment variable to activate this Spring profile:
+
+			export spring_profiles_active=dev
+		</description>
+		<!--suppress DuplicatedBeanNamesInspection -->
+		<bean id="routerPlaceholderConfig" parent="abstractRouterPlaceholderConfig">
+			<description>
+				Local developer property overrides.
+
+				0. Create a file 'local.properties' at the root of your classpath.
+				(Do not add this file to git.)
+
+				1. Populate that file with the property key/values that you wish to override.
+			</description>
+
+			<property name="localOverride" value="true"/>
+			<property name="localPropertiesLocation" value="classpath:local.properties"/>
+		</bean>
+	</beans>
+
+</beans>
