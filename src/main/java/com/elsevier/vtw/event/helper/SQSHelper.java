@@ -16,8 +16,8 @@ import java.util.Map;
 @Component
 public class SQSHelper {
 
-    private static String[] ATTRIBUTES = new String[]{"All"};
-    private static Logger LOG = LoggerFactory.getLogger(com.elsevier.vtw.event.helper.SQSHelper.class);
+    private static final String[] ATTRIBUTES = new String[]{"All"};
+    private static final Logger logger = LoggerFactory.getLogger(com.elsevier.vtw.event.helper.SQSHelper.class);
     private final AmazonSQS sqs;
 
     @Autowired
@@ -27,10 +27,10 @@ public class SQSHelper {
 
     public SQSMessageReturn enqueueSingleMessage(String queueName, String message) {
         try {
-            LOG.info("Sending a message to '{}' with message {}.", queueName, message);
+            logger.info("Sending a message to '{}' with message {}.", queueName, message);
             SQSMessageReturn msgReturn = new SQSMessageReturn();
             SendMessageResult result = this.sqs.sendMessage(new SendMessageRequest(this.prepareQueueURL(queueName), message));
-            LOG.debug("Message Id {}", result.getMessageId());
+            logger.debug("Message Id {}", result.getMessageId());
             msgReturn.setId(result.getMessageId());
             msgReturn.setCheckSum(result.getMD5OfMessageBody());
             return msgReturn;
@@ -45,7 +45,7 @@ public class SQSHelper {
             List<SQSMessageReturn> messagesToReturn = new ArrayList();
             String queueUrl = this.prepareQueueURL(queueName);
             ReceiveMessageRequest request = (new ReceiveMessageRequest(queueUrl)).withMaxNumberOfMessages(messageCount).withAttributeNames(ATTRIBUTES);
-            List<Message> messagesFromQueue = this.sqs.receiveMessage(request).getMessages();
+            List<Message> messagesFromQueue = sqs.receiveMessage(request).getMessages();
             Iterator var7 = messagesFromQueue.iterator();
 
             while(var7.hasNext()) {
@@ -96,6 +96,6 @@ public class SQSHelper {
 
     private void logErrorMessage(AmazonServiceException ase) {
         StringBuilder errorMsg = (new StringBuilder()).append("Error Msg:").append(ase.getMessage()).append("Status code:").append(ase.getStatusCode()).append("Error code:").append(ase.getErrorCode()).append("Error Type").append(ase.getErrorType()).append("Request ID:").append(ase.getRequestId());
-        LOG.error(errorMsg.toString());
+        logger.error(errorMsg.toString());
     }
 }

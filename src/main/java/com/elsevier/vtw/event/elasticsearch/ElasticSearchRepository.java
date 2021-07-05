@@ -1,5 +1,6 @@
 package com.elsevier.vtw.event.elasticsearch;
 
+import com.elsevier.vtw.event.helper.IndexingHelper;
 import io.searchbox.client.JestClient;
 import io.searchbox.client.JestClientFactory;
 import io.searchbox.client.config.HttpClientConfig;
@@ -16,22 +17,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 
+@Component
 public class ElasticSearchRepository {
     private static final Logger LOG = LoggerFactory.getLogger(ElasticSearchRepository.class);
     private JestClient client;
-    private String endpoint;
-    private String celIndexRoot;
-    private int esRequestTimeout;
+    private final String endpoint;
+    private final String celIndexRoot;
+    private final int esRequestTimeout;
     private String baseUrl;
     private int maxSearchResults;
-    private String username;
-    private String password;
+    private final String username;
+    private final String password;
 
     @Autowired
-    public ElasticSearchRepository(@Value("cr{cel.es.endpoint}") String endpoint, @Value("cr{cel.index.root.name}") String celIndexRoot, @Value("cr{cel.es.request.timeout}") int esRequestTimeout, @Value("cr{cel.es.baseUrl}") String baseUrl, @Value("cr{cel.max.search.results}") int maxSearchResults, @Value("cr{cel.es.client.username}") String username, @Value("cr{cel.es.client.password}") String password) {
+    public ElasticSearchRepository(@Value("cr{cel.es.endpoint}") String endpoint, @Value("cr{cel.index.root.name}") String celIndexRoot,
+                                   @Value("cr{cel.es.request.timeout}") int esRequestTimeout, @Value("cr{cel.es.baseUrl}") String baseUrl,
+                                   @Value("cr{cel.max.search.results}") int maxSearchResults, @Value("cr{cel.es.client.username}") String username,
+                                   @Value("cr{cel.es.client.password}") String password) {
         this.endpoint = endpoint;
         this.celIndexRoot = celIndexRoot;
         this.esRequestTimeout = esRequestTimeout;
@@ -56,10 +62,7 @@ public class ElasticSearchRepository {
         return credentialsProvider;
     }
 
-    /*
-        TO DO : This method still has dependency over import com.elsevier.events.elasticsearch.IndexingHelper;
-     */
-    /*public void addEvent(String event) {
+    public void addEvent(String event) {
         IndexingHelper indexHelper = new IndexingHelper(event);
         String id = indexHelper.getId();
         String type = indexHelper.getType();
@@ -74,7 +77,7 @@ public class ElasticSearchRepository {
             LOG.error("Elasticsearch Error for event:" + event, var8);
             throw new RuntimeException(var8);
         }
-    }*/
+    }
 
     private String insertTimestamp(String event, String timestamp) {
         return StringUtils.replaceOnce(event, "{", "{\"@timestamp\" : \"" + timestamp + "\",");
@@ -83,4 +86,5 @@ public class ElasticSearchRepository {
     public String getCurrentIndexName() {
         return this.celIndexRoot + DateTimeFormat.forPattern("-yyyy-MM").print((new DateTime()).toDateTime(DateTimeZone.UTC));
     }
+
 }

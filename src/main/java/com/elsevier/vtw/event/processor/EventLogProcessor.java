@@ -1,11 +1,10 @@
 package com.elsevier.vtw.event.processor;
 
-import com.amazonaws.services.sqs.AmazonSQS;
 import com.elsevier.vtw.event.elasticsearch.ElasticSearchRepository;
+import com.elsevier.vtw.event.helper.SQSHelper;
 import com.elsevier.vtw.event.helper.SQSMessage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.searchbox.client.JestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,57 +13,56 @@ import org.springframework.beans.factory.annotation.Value;
 import java.io.IOException;
 
 public class EventLogProcessor {
-    private static final Logger LOG = LoggerFactory.getLogger(EventLogProcessor.class);
-    public static final String QUEUE_MISSING_ERROR_MESSAGE = "Cannot find the queue for Subscriber";
-    public static final String QUEUE_MISSING_ERROR = "Null key found for public java.lang.String com.elsevier.events.service.SubscriberQueueTable.getSubscriberId";
-    public static final String EVT_ERROR_MSG = "err:msg";
+    private static final Logger logger = LoggerFactory.getLogger(EventLogProcessor.class);
+    private static final String QUEUE_MISSING_ERROR_MESSAGE = "Cannot find the queue for Subscriber";
+    private static final String QUEUE_MISSING_ERROR = "Null key found for public java.lang.String com.elsevier.events.service.SubscriberQueueTable.getSubscriberId";
+    private static final String EVT_ERROR_MSG = "err:msg";
 
-    private ElasticSearchRepository elasticSearchRepository;
-    private String queueName;
-    private  AmazonSQS sqs;
+    private final ElasticSearchRepository elasticSearchRepository;
+    private final String queueName;
+    private final SQSHelper sqsHelper;
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private JestClient client;
-    private String celIndexRoot;
+    private final String celIndexRoot;
 
     @Autowired
     public EventLogProcessor(ElasticSearchRepository elasticSearchRepository,
-                               @Value("%[event.router.listener.queue.name]") String queueName, AmazonSQS sqs, @Value("cr{cel.index.root.name}") String celIndexRoot) {
+                               @Value("%[event.router.listener.queue.name]") String queueName, SQSHelper sqsHelper, @Value("cr{cel.index.root.name}") String celIndexRoot) {
         this.elasticSearchRepository = elasticSearchRepository;
         this.queueName = queueName;
-        this.sqs = sqs;
+        this.sqsHelper = sqsHelper;
         this.celIndexRoot = celIndexRoot;
     }
 
-    public boolean processMessage(SQSMessage message) throws Exception {
+    public boolean processMessage(SQSMessage message) {
         String payload = message.getMessage();
         JsonNode messageNode = null;
         try {
             messageNode = MAPPER.readTree(payload);
         } catch (IOException ex) {
-            LOG.warn("Failed to convert the message to a JsonNode: {}", payload, ex);
+            logger.warn("Failed to convert the message to a JsonNode: {}", payload, ex);
         }
 
-        LOG.debug("Processing Message [{}].", payload);
+        logger.debug("Processing Message [{}].", payload);
 
         try {
             //TO DO
-            //elasticSearchRepository.addEvent(payload);
-            LOG.info("Logged the notification/servicecall into CEL - {}.", payload);
+            elasticSearchRepository.addEvent(payload);
+            logger.info("Logged the notification/servicecall into CEL - {}.", payload);
 
             /**
              * This change is to make sure Failed Notifications from router is not sent to Router again.
              * Instead of changing each rule to have an idetifier tag, the change was made to check whether
              * the failure is because of subscriber queue not existing in the list.
              */
-          /*  if (shouldEnqueueToEventQueue(messageNode)) {
-                LOG.info("Enqueuing the message to Event Queue - {}", payload);
+            if (shouldEnqueueToEventQueue(messageNode)) {
+                logger.info("Enqueuing the message to Event Queue - {}", payload);
                 sqsHelper.enqueueSingleMessage(queueName, payload);
-            }*/
+            }
 
         } catch (Exception ex) {
 
-            LOG.warn("Exception while adding the message {} to Elasticsearch", message, ex);
-            LOG.warn("Unable to enqueue message {} onto the Event queue, due to execption - {}", message, ex);
+            logger.warn("Exception while adding the message {} to Elasticsearch", message, ex);
+            logger.warn("Unable to enqueue message {} onto the Event queue, due to execption - {}", message, ex);
 
             throw ex;
         }
