@@ -13,7 +13,6 @@ import java.text.SimpleDateFormat;
 
 public class IndexingHelper {
 
-    private ObjectMapper mapper = new ObjectMapper();
     private String id;
     private String type;
     private String timestamp;
@@ -21,7 +20,8 @@ public class IndexingHelper {
 
     public IndexingHelper(String event) {
         try {
-            JsonNode payload = this.mapper.readTree(event);
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode payload = mapper.readTree(event);
             this.id = payload.get("@id").textValue();
             this.type = "message";
             String eventType = payload.get("msg:type").textValue();
@@ -35,7 +35,7 @@ public class IndexingHelper {
                 this.timestamp = this.getNotificationTime(payload);
             }
         } catch (Exception var4) {
-            LOG.error("Invalid Event:" + event, var4);
+            LOG.error("Invalid Event: {} {}", event, var4);
             this.timestamp = this.getCurrentTimestamp();
             this.type = "message";
         }
@@ -55,13 +55,13 @@ public class IndexingHelper {
     }
 
     private String getServcieCallTime(JsonNode payload) {
-        String timestamp = payload.findValue("svc:time").asText();
-        return this.validatedTimestamp(timestamp);
+        String serviceCallTimestamp = payload.findValue("svc:time").asText();
+        return this.validatedTimestamp(serviceCallTimestamp);
     }
 
     private String getNotificationTime(JsonNode payload) {
-        String timestamp = payload.findValue("evt:time").asText();
-        return this.validatedTimestamp(timestamp);
+        String notificationTimestamp = payload.findValue("evt:time").asText();
+        return this.validatedTimestamp(notificationTimestamp);
     }
 
     private String validatedTimestamp(String timestamp) {

@@ -5,20 +5,11 @@ import java.util.Map;
 
 public class SQSMessageReturn {
 
-    public static final String SENT_TIMESTAMP = "SentTimestamp";
-    public static final String APPROXIMATE_RECEIVE_COUNT = "ApproximateReceiveCount";
     private String id;
     private String handle;
     private String checkSum;
     private String body;
-    private Map<String, String> attributes = new HashMap();
-
-    public SQSMessageReturn() {
-    }
-
-    public String getId() {
-        return this.id;
-    }
+    private Map<String, String> attributes = new HashMap<>();
 
     public void setId(String id) {
         this.id = id;
@@ -30,10 +21,6 @@ public class SQSMessageReturn {
 
     public void setHandle(String handle) {
         this.handle = handle;
-    }
-
-    public String getCheckSum() {
-        return this.checkSum;
     }
 
     public void setCheckSum(String checkSum) {
@@ -65,18 +52,11 @@ public class SQSMessageReturn {
     }
 
     public String getAttribute(String name) {
-        return (String)this.getAttributes().get(name);
+        return this.getAttributes().get(name);
     }
 
     public int getReceiveCount() {
-        return Integer.valueOf(this.getAttribute("ApproximateReceiveCount"));
+        return Integer.parseInt(this.getAttribute("ApproximateReceiveCount"));
     }
 
-    public SQSMessage toSQSMessage() {
-        SQSMessage message = new SQSMessage();
-        message.setMessage(this.body);
-        message.setSentTimestamp(this.getAttribute("SentTimestamp"));
-        message.setReceiveCount(this.getReceiveCount());
-        return message;
-    }
 }

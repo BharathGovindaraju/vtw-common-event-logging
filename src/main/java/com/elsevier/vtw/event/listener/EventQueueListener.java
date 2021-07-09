@@ -1,14 +1,10 @@
 package com.elsevier.vtw.event.listener;
 
-import com.elsevier.vtw.event.helper.SQSMessage;
 import com.elsevier.vtw.event.helper.SQSHelper;
 import com.elsevier.vtw.event.helper.SQSMessageReturn;
 import com.elsevier.vtw.event.processor.EventLogProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class EventQueueListener implements Runnable {
     private final Logger logger = LoggerFactory.getLogger(com.elsevier.vtw.event.listener.EventQueueListener.class);
@@ -26,26 +22,21 @@ public class EventQueueListener implements Runnable {
     }
 
     public void run() {
-        List<String> handles = new ArrayList<>();
+        String handle = null;
         try {
-            List<SQSMessageReturn> messageReturns = sqsHelper.dequeueMessages(
+            SQSMessageReturn messageReturn = sqsHelper.dequeueMessage(
                     queueName, 1);
 
-            if (!messageReturns.isEmpty()) {
-                logger.debug("Retrieved {} messages.", messageReturns.size());
+                handle = messageReturn.getHandle();
 
-                SQSMessageReturn messageReturn = messageReturns.get(0);
-                handles.add(messageReturn.getHandle());
-                SQSMessage message = messageReturn.toSQSMessage();
-
-                boolean status = eventLogProcessor.processMessage(message);
+                boolean status = eventLogProcessor.processMessage(messageReturn);
                 logger.debug("Message processed, status [{}].", status);
+                
                 if (messageReturn.getReceiveCount() > 3) {
                     // if received more than 3 times, delete message
                     status = true;
                 }
-                checkAndClearMessage(handles, status);
-            }
+                checkAndClearMessage(handle, status);
         } catch (Exception exception) {
             // don't propagate the exception, 'cos this kills the thread and we
             // don't want that
@@ -53,16 +44,16 @@ public class EventQueueListener implements Runnable {
         } finally {
             // if retry is not required, delete the message irrespective of
             // status
-            if (!handles.isEmpty() && !retryRequired) {
-                logger.error("Clearing the messages in any case, {}.", handles);
-                sqsHelper.deleteMessages(queueName, handles);
+            if (handle != null && !retryRequired) {
+                logger.error("Clearing the messages in any case, {}.", handle);
+                sqsHelper.deleteMessage(queueName, handle);
             }
         }
     }
 
-    private void checkAndClearMessage(List<String> handles, boolean status) {
+    private void checkAndClearMessage(String handle, boolean status) {
         if (retryRequired && status) {
-            sqsHelper.deleteMessages(queueName, handles);
+            sqsHelper.deleteMessage(queueName, handle);
         }
     }
 }
